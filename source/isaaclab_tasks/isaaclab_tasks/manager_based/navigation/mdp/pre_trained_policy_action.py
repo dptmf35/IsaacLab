@@ -16,7 +16,7 @@ from isaaclab.managers import ActionTerm, ActionTermCfg, ObservationGroupCfg, Ob
 from isaaclab.markers import VisualizationMarkers
 from isaaclab.markers.config import BLUE_ARROW_X_MARKER_CFG, GREEN_ARROW_X_MARKER_CFG
 from isaaclab.utils import configclass
-from isaaclab.utils.assets import check_file_path, read_file
+from isaaclab.utils.assets import retrieve_file_path
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedRLEnv
@@ -39,11 +39,12 @@ class PreTrainedPolicyAction(ActionTerm):
 
         self.robot: Articulation = env.scene[cfg.asset_name]
 
-        # load policy
-        if not check_file_path(cfg.policy_path):
-            raise FileNotFoundError(f"Policy file '{cfg.policy_path}' does not exist.")
-        file_bytes = read_file(cfg.policy_path)
-        self.policy = torch.jit.load(file_bytes).to(env.device).eval()
+        # Resolve local/Nucleus/remote policy path and load TorchScript policy.
+        try:
+            local_policy_path = retrieve_file_path(cfg.policy_path)
+        except FileNotFoundError as err:
+            raise FileNotFoundError(f"Policy file '{cfg.policy_path}' does not exist or could not be retrieved.") from err
+        self.policy = torch.jit.load(local_policy_path).to(env.device).eval()
 
         self._raw_actions = torch.zeros(self.num_envs, self.action_dim, device=self.device)
 

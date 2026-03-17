@@ -29,17 +29,17 @@ from isaaclab_assets.robots.spot import SPOT_CFG  # isort: skip
 COBBLESTONE_ROAD_CFG = terrain_gen.TerrainGeneratorCfg(
     size=(8.0, 8.0),
     border_width=20.0,
-    num_rows=9,
+    num_rows=12,  # was 9
     num_cols=21,
     horizontal_scale=0.1,
     vertical_scale=0.005,
     slope_threshold=0.75,
-    difficulty_range=(0.0, 1.0),
+    difficulty_range=(0.2, 1.0),  # was (0.0, 1.0)
     use_cache=False,
     sub_terrains={
         "flat": terrain_gen.MeshPlaneTerrainCfg(proportion=0.2),
         "random_rough": terrain_gen.HfRandomUniformTerrainCfg(
-            proportion=0.2, noise_range=(0.02, 0.05), noise_step=0.02, border_width=0.25
+            proportion=0.2, noise_range=(0.03, 0.07), noise_step=0.02, border_width=0.25  # was (0.02, 0.05)
         ),
     },
 )
@@ -64,7 +64,9 @@ class SpotCommandsCfg:
         heading_command=False,
         debug_vis=True,
         ranges=mdp.UniformVelocityCommandCfg.Ranges(
-            lin_vel_x=(-2.0, 3.0), lin_vel_y=(-1.5, 1.5), ang_vel_z=(-2.0, 2.0)
+            lin_vel_x=(-2.5, 3.5),  # was (-2.0, 3.0)
+            lin_vel_y=(-2.0, 2.0),  # was (-1.5, 1.5)
+            ang_vel_z=(-2.5, 2.5),  # was (-2.0, 2.0)
         ),
     )
 
@@ -116,8 +118,8 @@ class SpotEventCfg:
         mode="startup",
         params={
             "asset_cfg": SceneEntityCfg("robot", body_names=".*"),
-            "static_friction_range": (0.3, 1.0),
-            "dynamic_friction_range": (0.3, 0.8),
+            "static_friction_range": (0.2, 1.0),  # was (0.3, 1.0)
+            "dynamic_friction_range": (0.15, 0.8),  # was (0.3, 0.8)
             "restitution_range": (0.0, 0.0),
             "num_buckets": 64,
         },
@@ -149,7 +151,7 @@ class SpotEventCfg:
         mode="reset",
         params={
             "asset_cfg": SceneEntityCfg("robot"),
-            "pose_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5), "yaw": (-3.14, 3.14)},
+            "pose_range": {"x": (-1.0, 1.0), "y": (-1.0, 1.0), "yaw": (-3.14, 3.14)},  # was x/y (-0.5, 0.5)
             "velocity_range": {
                 "x": (-1.5, 1.5),
                 "y": (-1.0, 1.0),
@@ -175,10 +177,10 @@ class SpotEventCfg:
     push_robot = EventTerm(
         func=mdp.push_by_setting_velocity,
         mode="interval",
-        interval_range_s=(10.0, 15.0),
+        interval_range_s=(7.0, 12.0),  # was (10.0, 15.0)
         params={
             "asset_cfg": SceneEntityCfg("robot"),
-            "velocity_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5)},
+            "velocity_range": {"x": (-0.8, 0.8), "y": (-0.8, 0.8)},  # was x/y (-0.5, 0.5)
         },
     )
 
