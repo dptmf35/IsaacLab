@@ -107,6 +107,9 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
 
     # handle deprecated configurations
     agent_cfg = handle_deprecated_rsl_rl_cfg(agent_cfg, installed_version)
+    for field in ("share_cnn_encoders",):
+        if hasattr(agent_cfg.algorithm, field):
+            delattr(agent_cfg.algorithm, field)
 
     # set the environment seed
     # note: certain randomizations occur in the environment initialization so we set the seed here
