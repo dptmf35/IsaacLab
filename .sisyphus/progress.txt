@@ -1,0 +1,50 @@
+# Ralph Progress Log
+Started: 2026-04-07T00:00:00Z
+
+## Codebase Patterns
+
+### SurfaceGripper API (Isaac Sim 5.0+)
+- `SurfaceGripper.state` returns tensor: -1=open, 0=closing, 1=closed
+- NO `.data` property (raises NotImplementedError)
+- SurfaceGripperCfg prim_path: `{ENV_REGEX_NS}/Robot/ee_link/SurfaceGripper`
+- CPU-only: always set `self.device = "cpu"` in env __post_init__
+- Import: `from isaaclab.assets import SurfaceGripperCfg`
+- Action import: `from isaaclab.envs.mdp.actions.actions_cfg import SurfaceGripperBinaryActionCfg`
+
+### UR10 Long Suction
+- Config: `UR10_LONG_SUCTION_CFG` in `isaaclab_assets.robots.universal_robots`
+- Uses USD variant: `{"Gripper": "Long_Suction"}`
+- ee_link: `Robot/ee_link`
+- Suction cup tip offset: 0.22m along local x-axis from ee_link
+- Existing example: `stack/config/ur10_gripper/stack_joint_pos_env_cfg.py`
+
+### UniformPoseCommand frame convention
+- `get_command()` returns `pose_command_b`: position in ROBOT BASE FRAME (not world/env-local)
+- To get world frame: `goal_pos_w = robot.data.root_pos_w + command[:, :3]`
+- (Assumes robot has no rotation, which is standard for fixed-base arm setups)
+- `pose_command_w` is also available internally but not via clean API
+
+### FrameTransformer data access
+- `data.target_pos_w[:, 0, :]` for first target frame (shape: num_envs x 3)
+- `data.target_quat_w[:, 0, :]` for quaternion (num_envs x 4)
+- Do NOT use `body_names` in SceneEntityCfg for FrameTransformer
+
+### RigidObject reset pattern
+- Use `write_root_state_to_sim(state, env_ids)` with shape (N, 13)
+- state = cat([pos_w, quat_w, vel_linear, vel_angular]) all shape (N, 3) except quat (N,4)
+
+---
+
+## 2026-04-07 - US-001 through US-005
+- Researched SurfaceGripper API and UR10 suction asset
+- Created complete task directory: `deploy/pick_place_suction/`
+- Implemented all MDP modules (observations, rewards, terminations, events)
+- Implemented robot-specific config (UR10LongSuctionPickPlaceEnvCfg)
+- Implemented RSL-RL PPO agent config (PickPlacePPORunnerCfg)
+- Registered gym IDs: Isaac-Deploy-PickPlace-UR10-Suction-v0, -Play-v0
+- Updated deploy/__init__.py
+- **Learnings:**
+  - SurfaceGripper requires Isaac Sim 5.0+ (raises NotImplementedError on older versions)
+  - UniformPoseCommand generates commands in robot base frame, needs conversion to world frame
+  - CPU-only constraint limits num_envs to 256-512 (not 4096 like GPU tasks)
+  - FrameTransformer body_names in SceneEntityCfg is for articulations, not sensors

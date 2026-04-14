@@ -1,0 +1,10 @@
+{
+    "task": "Isaac-Velocity-Flat-Spot-v0",
+    "num_dagger_iters": 5,
+    "rollout_demos_per_iter": 200,
+    "demo_length": 500,
+    "num_epochs_per_iter": 500,
+    "final_bc_policy": "/home/yeseul/IsaacLab/dagger_output/bc_rnn_v4/final_bc_policy.pth",
+    "aggregated_dataset": "/home/yeseul/IsaacLab/dagger_output/bc_rnn_v4/aggregated_dataset.hdf5",
+    "total_demos": 3000
+}

@@ -160,7 +160,9 @@ installed_rsl_rl_version = metadata.version("rsl-rl-lib")
 # Observation term constants  (must match collect_expert_demos.py)
 # ---------------------------------------------------------------------------
 
-# Full 48D obs (used by RSL-RL expert)
+# Full 50D obs layout (with gait_phase):
+#   base_lin_vel(3), base_ang_vel(3), projected_gravity(3), velocity_commands(3),
+#   joint_pos(12), joint_vel(12), actions(12), gait_phase(2) = 50D
 OBS_TERM_NAMES = [
     "base_lin_vel",       # 3D
     "base_ang_vel",       # 3D
@@ -169,12 +171,16 @@ OBS_TERM_NAMES = [
     "joint_pos",          # 12D
     "joint_vel",          # 12D
     "actions",            # 12D  (previous action — stored in obs but NOT fed to BC)
+    "gait_phase",         # 2D   [sin, cos] of gait phase
 ]
-OBS_TERM_DIMS = [3, 3, 3, 3, 12, 12, 12]
+OBS_TERM_DIMS = [3, 3, 3, 3, 12, 12, 12, 2]
 
-# BC policy only uses the first 36D (excludes the trailing "actions" term)
-BC_OBS_TERM_NAMES = OBS_TERM_NAMES[:-1]   # drop "actions"
-BC_OBS_TERM_DIMS  = OBS_TERM_DIMS[:-1]    # drop 12
+# BC policy uses 38D: all terms except "actions" (12D)
+# Layout: base_lin_vel(3), base_ang_vel(3), projected_gravity(3), velocity_commands(3),
+#         joint_pos(12), joint_vel(12), gait_phase(2) = 38D
+BC_OBS_TERM_NAMES = ["base_lin_vel", "base_ang_vel", "projected_gravity",
+                     "velocity_commands", "joint_pos", "joint_vel", "gait_phase"]
+BC_OBS_TERM_DIMS  = [3, 3, 3, 3, 12, 12, 2]
 
 
 # ---------------------------------------------------------------------------
@@ -182,10 +188,14 @@ BC_OBS_TERM_DIMS  = OBS_TERM_DIMS[:-1]    # drop 12
 # ---------------------------------------------------------------------------
 
 def slice_obs_vector(flat_obs: torch.Tensor) -> dict:
-    """Split a flat 48D observation tensor into named per-term tensors.
+    """Split a flat 50D observation tensor into named per-term tensors.
+
+    Layout: base_lin_vel(3), base_ang_vel(3), projected_gravity(3),
+            velocity_commands(3), joint_pos(12), joint_vel(12),
+            actions(12), gait_phase(2) = 50D total.
 
     Args:
-        flat_obs: Shape [num_envs, 48].
+        flat_obs: Shape [num_envs, 50].
 
     Returns:
         Dict: term_name -> tensor [num_envs, dim].
@@ -199,22 +209,29 @@ def slice_obs_vector(flat_obs: torch.Tensor) -> dict:
 
 
 def build_bc_obs(flat_obs: torch.Tensor) -> dict:
-    """Build the observation dict expected by the BC robomimic policy.
+    """Build the 38D observation dict expected by the BC robomimic policy.
 
-    Slices the first 36D from the 48D flat obs (drops the trailing 'actions'
-    term which is only used by the RSL-RL expert).
+    Extracts all terms except "actions" from the 50D flat obs:
+      base_lin_vel(3), base_ang_vel(3), projected_gravity(3), velocity_commands(3),
+      joint_pos(12), joint_vel(12), gait_phase(2) = 38D.
+    "actions" (12D at indices 36-47) is skipped; gait_phase is at indices 48-49.
 
     Args:
-        flat_obs: Shape [48] (single env, already squeezed).
+        flat_obs: Shape [50] (single env, already squeezed).
 
     Returns:
         Dict: term_name -> numpy array of shape [dim].
     """
     obs_dict = {}
+    # First 6 terms (36D): skip "actions" after joint_vel
     start = 0
-    for name, dim in zip(BC_OBS_TERM_NAMES, BC_OBS_TERM_DIMS):
+    for name, dim in zip(BC_OBS_TERM_NAMES[:-1], BC_OBS_TERM_DIMS[:-1]):
         obs_dict[name] = flat_obs[start : start + dim].cpu().numpy()
         start += dim
+    # Skip "actions" (12D)
+    start += 12
+    # gait_phase (2D)
+    obs_dict["gait_phase"] = flat_obs[start : start + 2].cpu().numpy()
     return obs_dict
 
 
@@ -342,8 +359,8 @@ def collect_dagger_rollouts(
         bc_policy.start_episode()
 
         for _ in range(args_cli.demo_length):
-            flat_obs = obs["policy"]  # [num_envs, 48]
-            flat_obs_single = flat_obs[0]  # [48] — we always use env index 0
+            flat_obs = obs["policy"]  # [num_envs, 50]  (with gait_phase)
+            flat_obs_single = flat_obs[0]  # [50] — we always use env index 0
 
             # ----- Student action: used to step the environment -----
             bc_obs = build_bc_obs(flat_obs_single)

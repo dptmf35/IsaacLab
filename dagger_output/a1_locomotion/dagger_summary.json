@@ -1,0 +1,10 @@
+{
+    "task": "Isaac-Velocity-Flat-Unitree-A1-v0",
+    "num_dagger_iters": 5,
+    "rollout_demos_per_iter": 200,
+    "demo_length": 500,
+    "num_epochs_per_iter": 500,
+    "final_bc_policy": "/home/yeseul/IsaacLab/dagger_output/a1_locomotion/final_bc_policy.pth",
+    "aggregated_dataset": "/home/yeseul/IsaacLab/dagger_output/a1_locomotion/aggregated_dataset.hdf5",
+    "total_demos": 1500
+}

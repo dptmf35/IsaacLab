@@ -3,7 +3,10 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
+from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.utils import configclass
+
+from isaaclab_tasks.manager_based.locomotion.velocity import mdp
 
 from .rough_env_cfg import UnitreeA1RoughEnvCfg
 
@@ -26,6 +29,13 @@ class UnitreeA1FlatEnvCfg(UnitreeA1RoughEnvCfg):
         self.observations.policy.height_scan = None
         # no terrain curriculum
         self.curriculum.terrain_levels = None
+
+        # add explicit gait phase encoding [sin, cos] so BC policy can learn
+        # periodic gait timing without relying solely on LSTM hidden state.
+        # gait_period=20 steps ≈ 0.4 s at 50 Hz control (A1 trot frequency).
+        self.observations.policy.gait_phase = ObsTerm(
+            func=mdp.gait_phase, params={"gait_period": 20}
+        )
 
 
 class UnitreeA1FlatEnvCfg_PLAY(UnitreeA1FlatEnvCfg):

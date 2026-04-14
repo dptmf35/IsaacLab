@@ -11,7 +11,10 @@ and deployed on physical robots.
 
 The deploy module includes:
 - Reach environments for end-effector pose tracking
+- Pick-and-place environments with suction gripper
 
 """
 
+from .pick_place_suction import *  # noqa: F401, F403
 from .reach import *  # noqa: F401, F403
+from .ur_table import *  # noqa: F401, F403

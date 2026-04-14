@@ -8,9 +8,11 @@
 
 The following configuration parameters are available:
 
+* :obj:`UR3_CFG`: The UR3 arm without a gripper.
 * :obj:`UR10_CFG`: The UR10 arm without a gripper.
 * :obj:`UR10E_ROBOTIQ_GRIPPER_CFG`: The UR10E arm with Robotiq_2f_140 gripper.
 * :obj:`UR10e_ROBOTIQ_2F_85_CFG`: The UR10E arm with Robotiq 2F-85 gripper.
+* :obj:`UR_ROBOT_SYSTEM_CFG`: Custom UR robot + suction gripper + X-axis prismatic table (single articulation).
 
 Reference: https://github.com/ros-industrial/universal_robot
 """
@@ -23,6 +25,37 @@ from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
 ##
 # Configuration
 ##
+
+UR3_CFG = ArticulationCfg(
+    spawn=sim_utils.UsdFileCfg(
+        usd_path=f"{ISAACLAB_NUCLEUS_DIR}/Robots/UniversalRobots/UR3/ur3.usd",
+        rigid_props=sim_utils.RigidBodyPropertiesCfg(
+            disable_gravity=False,
+            max_depenetration_velocity=5.0,
+        ),
+        activate_contact_sensors=False,
+    ),
+    init_state=ArticulationCfg.InitialStateCfg(
+        joint_pos={
+            "shoulder_pan_joint": 0.0,
+            "shoulder_lift_joint": -1.712,
+            "elbow_joint": 1.712,
+            "wrist_1_joint": 0.0,
+            "wrist_2_joint": 0.0,
+            "wrist_3_joint": 0.0,
+        },
+    ),
+    actuators={
+        "arm": ImplicitActuatorCfg(
+            joint_names_expr=[".*"],
+            effort_limit_sim=28.0,
+            stiffness=400.0,
+            damping=20.0,
+        ),
+    },
+)
+
+"""Configuration of UR-3 arm using implicit actuator models."""
 
 UR10_CFG = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
@@ -205,3 +238,53 @@ UR10e_ROBOTIQ_2F_85_CFG.actuators["gripper_passive"] = ImplicitActuatorCfg(
 )
 
 """Configuration of UR-10E arm with Robotiq 2F-85 gripper."""
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Custom Digital-Twin USD: UR robot + suction gripper + X-axis prismatic table
+# All joints share a single ArticulationRoot under the "UR_Robot_System" prim.
+# ─────────────────────────────────────────────────────────────────────────────
+UR_ROBOT_SYSTEM_CFG = ArticulationCfg(
+    spawn=sim_utils.UsdFileCfg(
+        usd_path="/home/yeseul/Desktop/Digital_Twin_UR/UR_Robot_System.usd",
+        rigid_props=sim_utils.RigidBodyPropertiesCfg(
+            disable_gravity=True,
+            max_depenetration_velocity=5.0,
+        ),
+        articulation_props=sim_utils.ArticulationRootPropertiesCfg(
+            enabled_self_collisions=False,
+            solver_position_iteration_count=16,
+            solver_velocity_iteration_count=1,
+            fix_root_link=True,
+        ),
+        activate_contact_sensors=False,
+    ),
+    init_state=ArticulationCfg.InitialStateCfg(
+        pos=(0.0, 0.0, 0.7356),
+        joint_pos={
+            # UR arm joints
+            "shoulder_pan_joint": 0.0,
+            "shoulder_lift_joint": -1.5707,
+            "elbow_joint": 1.5707,
+            "wrist_1_joint": -1.5707,
+            "wrist_2_joint": -1.5707,
+            "wrist_3_joint": 0.0,
+            "PrismaticJoint": 0.0,
+        },
+    ),
+    actuators={
+        "arm": ImplicitActuatorCfg(
+            joint_names_expr=["shoulder_.*", "elbow_joint", "wrist_.*"],
+            effort_limit_sim=87.0,
+            stiffness=800.0,
+            damping=40.0,
+        ),
+        "table_slide": ImplicitActuatorCfg(
+            joint_names_expr=["PrismaticJoint"],
+            effort_limit_sim=500.0,
+            stiffness=1000.0,
+            damping=100.0,
+        ),
+    },
+)
+
+"""Configuration of custom UR robot system with suction gripper and X-axis prismatic table."""

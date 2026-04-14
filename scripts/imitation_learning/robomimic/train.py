@@ -83,6 +83,27 @@ import isaaclab_tasks.manager_based.locomanipulation.pick_place  # noqa: F401
 import isaaclab_tasks.manager_based.manipulation.pick_place  # noqa: F401
 
 
+# ● BC 학습에서 action normalization이 필요한 이유:
+
+#   문제: action 스케일 불균형
+
+#   Spot 12개 관절의 action 값 범위가 관절마다 달라. 예를 들어:
+#   - hip joint: ±0.5 rad
+#   - knee joint: ±1.5 rad
+
+#   이러면 네트워크가 큰 값의 관절에 과도하게 집중하고 작은 값은 무시하게 됨.
+
+#   normalization이 하는 것
+
+#   전체 action 데이터의 min/max를 구해서 [-1, 1] 범위로 스케일링:
+#   normalized = 2 * (x - min) / (max - min) - 1
+
+#   효과
+#   - 모든 관절이 동등한 비중으로 학습됨
+#   - gradient 크기가 안정적 → 학습 수렴 빠름
+#   - MSE loss가 모든 차원에서 균등하게 적용됨
+
+
 def normalize_hdf5_actions(config: Config, log_dir: str) -> str:
     """Normalizes actions in hdf5 dataset to [-1, 1] range.
 

@@ -19,6 +19,8 @@ gym.register(
         "env_cfg_entry_point": f"{__name__}.flat_env_cfg:SpotFlatEnvCfg",
         "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:SpotFlatPPORunnerCfg",
         "skrl_cfg_entry_point": f"{agents.__name__}:skrl_flat_ppo_cfg.yaml",
+        "robomimic_bc_cfg_entry_point": f"{agents.__name__}:robomimic/bc_low_dim.json",
+        "robomimic_bc_rnn_cfg_entry_point": f"{agents.__name__}:robomimic/bc_rnn_low_dim.json",
     },
 )
 

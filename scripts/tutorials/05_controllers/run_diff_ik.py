@@ -53,7 +53,7 @@ from isaaclab.utils.math import subtract_frame_transforms
 ##
 # Pre-defined configs
 ##
-from isaaclab_assets import FRANKA_PANDA_HIGH_PD_CFG, UR10_CFG  # isort:skip
+from isaaclab_assets import FRANKA_PANDA_HIGH_PD_CFG, UR3_CFG, UR10_CFG  # isort:skip
 
 
 @configclass
@@ -85,8 +85,10 @@ class TableTopSceneCfg(InteractiveSceneCfg):
         robot = FRANKA_PANDA_HIGH_PD_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
     elif args_cli.robot == "ur10":
         robot = UR10_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
+    elif args_cli.robot == "ur3":
+        robot = UR3_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
     else:
-        raise ValueError(f"Robot {args_cli.robot} is not supported. Valid: franka_panda, ur10")
+        raise ValueError(f"Robot {args_cli.robot} is not supported. Valid: franka_panda, ur10, ur3")
 
 
 def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene):
@@ -106,11 +108,19 @@ def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene):
     goal_marker = VisualizationMarkers(frame_marker_cfg.replace(prim_path="/Visuals/ee_goal"))
 
     # Define goals for the arm
-    ee_goals = [
-        [0.5, 0.5, 0.7, 0.707, 0, 0.707, 0],
-        [0.5, -0.4, 0.6, 0.707, 0.707, 0.0, 0.0],
-        [0.5, 0, 0.5, 0.0, 1.0, 0.0, 0.0],
-    ]
+    # UR3 has a shorter reach (~500mm) so targets are closer to the base
+    if args_cli.robot == "ur3":
+        ee_goals = [
+            [0.3, 0.2, 0.4, 0.707, 0, 0.707, 0],
+            [0.3, -0.2, 0.3, 0.707, 0.707, 0.0, 0.0],
+            [0.3, 0.0, 0.35, 0.0, 1.0, 0.0, 0.0],
+        ]
+    else:
+        ee_goals = [
+            [0.5, 0.5, 0.7, 0.707, 0, 0.707, 0],
+            [0.5, -0.4, 0.6, 0.707, 0.707, 0.0, 0.0],
+            [0.5, 0, 0.5, 0.0, 1.0, 0.0, 0.0],
+        ]
     ee_goals = torch.tensor(ee_goals, device=sim.device)
     # Track the given command
     current_goal_idx = 0
@@ -123,8 +133,10 @@ def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene):
         robot_entity_cfg = SceneEntityCfg("robot", joint_names=["panda_joint.*"], body_names=["panda_hand"])
     elif args_cli.robot == "ur10":
         robot_entity_cfg = SceneEntityCfg("robot", joint_names=[".*"], body_names=["ee_link"])
+    elif args_cli.robot == "ur3":
+        robot_entity_cfg = SceneEntityCfg("robot", joint_names=[".*"], body_names=["ee_link"])
     else:
-        raise ValueError(f"Robot {args_cli.robot} is not supported. Valid: franka_panda, ur10")
+        raise ValueError(f"Robot {args_cli.robot} is not supported. Valid: franka_panda, ur10, ur3")
     # Resolving the scene entities
     robot_entity_cfg.resolve(scene)
     # Obtain the frame index of the end-effector

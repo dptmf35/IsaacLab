@@ -121,36 +121,50 @@ BC_OBS_TERM_NAMES = [
     "velocity_commands",
     "joint_pos",
     "joint_vel",
+    "gait_phase",
 ]
 
-# Per-term dimensions for slicing the flat 48D observation vector
-# Note: the flat obs is 48D; "actions" (12D) is the last term but NOT fed to the BC policy.
-BC_OBS_TERM_DIMS = [3, 3, 3, 3, 12, 12]
+# Per-term dimensions for slicing the flat observation vector.
+# Flat obs layout (50D with gait_phase):
+#   base_lin_vel(3), base_ang_vel(3), projected_gravity(3), velocity_commands(3),
+#   joint_pos(12), joint_vel(12), actions(12), gait_phase(2)
+# "actions" (12D) is NOT fed to the BC policy; "gait_phase" (2D) IS fed.
+BC_OBS_TERM_DIMS = [3, 3, 3, 3, 12, 12, 2]
 
 
 def build_policy_obs(flat_obs: torch.Tensor) -> dict:
     """Build per-term observation dict from a flat observation tensor.
 
-    The Spot flat env produces a 48D concatenated obs vector:
+    The A1 flat env (with gait_phase) produces a 50D concatenated obs vector:
       [base_lin_vel(3), base_ang_vel(3), projected_gravity(3),
-       velocity_commands(3), joint_pos(12), joint_vel(12), actions(12)]
+       velocity_commands(3), joint_pos(12), joint_vel(12), actions(12), gait_phase(2)]
 
-    The BC policy was trained on the first 36D (excluding the last 'actions' term).
+    The BC policy is fed 38D: first 36D (excluding actions) + gait_phase(2).
+    "actions" (12D at indices 36-47) is skipped; gait_phase is at indices 48-49.
 
     Args:
-        flat_obs: Flat observation tensor of shape [num_envs, 48] or [48].
+        flat_obs: Flat observation tensor of shape [num_envs, 50] or [50].
 
     Returns:
         Dict mapping term name -> numpy array of shape [dim] (squeezed for robomimic).
     """
     if flat_obs.dim() == 2:
-        flat_obs = flat_obs[0]  # take first env, shape [48]
+        flat_obs = flat_obs[0]  # take first env
 
     obs_dict = {}
+    # First 6 terms (36D total): base_lin_vel, base_ang_vel, projected_gravity,
+    #                             velocity_commands, joint_pos, joint_vel
     start = 0
-    for name, dim in zip(BC_OBS_TERM_NAMES, BC_OBS_TERM_DIMS):
+    for name, dim in zip(BC_OBS_TERM_NAMES[:-1], BC_OBS_TERM_DIMS[:-1]):
         obs_dict[name] = flat_obs[start : start + dim].cpu().numpy()
         start += dim
+
+    # Skip "actions" (12D) — not fed to BC policy
+    start += 12
+
+    # gait_phase (2D) — last BC term
+    gait_dim = BC_OBS_TERM_DIMS[-1]
+    obs_dict["gait_phase"] = flat_obs[start : start + gait_dim].cpu().numpy()
 
     return obs_dict
 
@@ -170,14 +184,14 @@ def rollout(policy, env, horizon: int, device: str) -> dict:
     policy.start_episode()
     obs_dict, _ = env.reset()
 
-    # obs_dict["policy"] is the flat concatenated [num_envs, 48] tensor
+    # obs_dict["policy"] is the flat concatenated [num_envs, 50] tensor (with gait_phase)
     flat_obs = obs_dict["policy"]
 
     total_steps = 0
     terminated = False
     truncated = False
 
-    # Record initial velocity command (indices 9~11 in the 48D flat obs)
+    # Record initial velocity command (indices 9~11 in the 50D flat obs)
     # [base_lin_vel(3), base_ang_vel(3), projected_gravity(3), velocity_commands(3), ...]
     init_vel_cmd = flat_obs[0, 9:12].cpu().numpy() if flat_obs.dim() == 2 else flat_obs[9:12].cpu().numpy()
 
@@ -227,7 +241,7 @@ def main():
         use_fabric=not args_cli.disable_fabric,
     )
 
-    # Keep observations as flat concatenated vector (48D for Spot)
+    # Keep observations as flat concatenated vector (50D with gait_phase)
     env_cfg.observations.policy.concatenate_terms = True
     # Disable observation noise for clean evaluation
     env_cfg.observations.policy.enable_corruption = False

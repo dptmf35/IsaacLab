@@ -105,23 +105,28 @@ installed_rsl_rl_version = metadata.version("rsl-rl-lib")
 # Observation term names in order matching the policy group in flat_env_cfg.py
 OBS_TERM_NAMES = [
     "base_lin_vel",       # 3D   / 선속도
-    "base_ang_vel",       # 3D   / 각속도 
-    "projected_gravity",  # 3D   / 투영된 중력 벡터 
-    "velocity_commands",  # 3D   / 속도 목표값 cmd 
+    "base_ang_vel",       # 3D   / 각속도
+    "projected_gravity",  # 3D   / 투영된 중력 벡터
+    "velocity_commands",  # 3D   / 속도 목표값 cmd
     "joint_pos",          # 12D  / 12개 관절의 위치 값
-    "joint_vel",          # 12D  / 12개 관절의 속도 값 
-    "actions",            # 12D (previous action)  
+    "joint_vel",          # 12D  / 12개 관절의 속도 값
+    "actions",            # 12D  / 이전 스텝 액션
+    "gait_phase",         # 2D   / [sin, cos] of gait phase
 ]
 
 # Per-term dimensions corresponding to OBS_TERM_NAMES
-OBS_TERM_DIMS = [3, 3, 3, 3, 12, 12, 12]
+OBS_TERM_DIMS = [3, 3, 3, 3, 12, 12, 12, 2]
 
 
 def slice_obs_vector(flat_obs: torch.Tensor) -> dict:
-    """Split a flat 48D observation vector into named per-term tensors.
+    """Split a flat 50D observation vector into named per-term tensors.
+
+    Layout: base_lin_vel(3), base_ang_vel(3), projected_gravity(3),
+            velocity_commands(3), joint_pos(12), joint_vel(12),
+            actions(12), gait_phase(2) = 50D total.
 
     Args:
-        flat_obs: Flat observation tensor of shape [num_envs, 48].
+        flat_obs: Flat observation tensor of shape [num_envs, 50].
 
     Returns:
         Dict mapping observation term name -> tensor [num_envs, dim].

@@ -65,7 +65,7 @@
         },
         "actor_layer_dims": [512, 512],
         "gmm": {
-            "enabled": false,
+            "enabled": true,
             "num_modes": 5,
             "min_std": 0.0001,
             "std_activation": "softplus",
@@ -92,7 +92,8 @@
                     "projected_gravity",
                     "velocity_commands",
                     "joint_pos",
-                    "joint_vel"
+                    "joint_vel",
+                    "gait_phase"
                 ],
                 "rgb": [],
                 "depth": [],

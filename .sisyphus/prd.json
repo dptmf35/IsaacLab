@@ -1,0 +1,92 @@
+{
+  "project": "UR10 Suction Pick-and-Place RL Task",
+  "branchName": "ralph/ur10-suction-pickplace",
+  "description": "Implement a manager-based RL environment for UR10 with suction gripper to pick and place a single box. Binary suction on/off action, randomized pick and place positions, phased dense rewards.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Research existing APIs (SurfaceGripper, UR10 suction asset)",
+      "description": "As a developer, I want to know the exact API for SurfaceGripper and UR10_LONG_SUCTION_CFG so that I implement observations and actions correctly.",
+      "acceptanceCriteria": [
+        "SurfaceGripper data API identified (gripping state access)",
+        "UR10_LONG_SUCTION_CFG prim paths and ee_link name confirmed",
+        "SurfaceGripperBinaryActionCfg import path confirmed",
+        "Any existing pick-place suction example found"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "SurfaceGripper.state returns (-1=open, 0=closing, 1=closed). SurfaceGripperCfg at {ENV_REGEX_NS}/Robot/ee_link/SurfaceGripper. UR10_LONG_SUCTION_CFG uses variant Long_Suction. Existing stack example in stack/config/ur10_gripper/."
+    },
+    {
+      "id": "US-002",
+      "title": "Create directory scaffold and base env config",
+      "description": "As a developer, I want the directory structure and base env config so that I have the skeleton to fill in.",
+      "acceptanceCriteria": [
+        "All directories created under deploy/pick_place_suction/",
+        "pick_place_suction_env_cfg.py compiles without errors",
+        "SceneCfg, ActionsCfg, ObservationsCfg, RewardsCfg, TerminationsCfg, EventCfg stubs defined",
+        "MISSING fields properly typed"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Base env cfg created. SceneCfg includes box RigidObjectCfg with blue_block.usd. device=cpu set for suction gripper."
+    },
+    {
+      "id": "US-003",
+      "title": "Implement MDP modules (observations, rewards, terminations, events)",
+      "description": "As a developer, I want custom MDP functions for the pick-and-place task so that the agent can learn the full pick-place behavior.",
+      "acceptanceCriteria": [
+        "observations.py: ee_pos_w, ee_quat_w, box_pos_w, box_quat_w, goal_pos, suction_state implemented",
+        "rewards.py: approach_box, grasp, lift_box, place_box, success_bonus implemented",
+        "terminations.py: box_dropped, box_at_goal implemented",
+        "events.py: reset_box_random implemented",
+        "mdp/__init__.py exports all terms"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "All MDP modules implemented. Goal pos converted from robot base frame to world frame using robot.data.root_pos_w."
+    },
+    {
+      "id": "US-004",
+      "title": "Implement robot-specific config and agent config",
+      "description": "As a developer, I want the UR10 Long Suction robot config and RSL-RL PPO agent config so that training can be launched.",
+      "acceptanceCriteria": [
+        "joint_pos_env_cfg.py: UR10LongSuctionPickPlaceEnvCfg defined with robot, surface_gripper, ee_frame, actions",
+        "joint_pos_env_cfg.py: UR10LongSuctionPickPlaceEnvCfg_PLAY defined",
+        "rsl_rl_ppo_cfg.py: PickPlacePPORunnerCfg defined",
+        "Action space = 7D (6 joints + 1 suction)"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": "UR10LongSuctionPickPlaceEnvCfg uses RelativeJointPositionActionCfg + SurfaceGripperBinaryActionCfg. ee_frame OffsetCfg pos=[0.22, 0, 0] for long suction tip."
+    },
+    {
+      "id": "US-005",
+      "title": "Gym registration and import wiring",
+      "description": "As a developer, I want the gym IDs registered so that training can be launched with the standard train.py script.",
+      "acceptanceCriteria": [
+        "Isaac-Deploy-PickPlace-UR10-Suction-v0 registered",
+        "Isaac-Deploy-PickPlace-UR10-Suction-Play-v0 registered",
+        "deploy/__init__.py updated to import pick_place_suction",
+        "All __init__.py files correctly chain imports"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": "Gym IDs registered. deploy/__init__.py updated with from .pick_place_suction import *."
+    },
+    {
+      "id": "US-006",
+      "title": "Smoke test: environment creation and short training run",
+      "description": "As a developer, I want to verify the environment runs correctly so that I can confirm the implementation is correct.",
+      "acceptanceCriteria": [
+        "Environment can be instantiated without errors",
+        "Action space is 7D, observation space is 30D",
+        "Training runs 50 iterations without crash",
+        "Reward values change (not constant) during training"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "Requires Isaac Sim runtime - cannot run in CI. User must run the smoke test."
+    }
+  ]
+}
