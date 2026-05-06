@@ -76,13 +76,19 @@ class URRobotSystemEnvCfg(URTableEnvCfg):
         #       "base_link" is the fixed root body; "ee_link" is the tool-center-point link.
         self.scene.ee_frame = FrameTransformerCfg(
             prim_path="{ENV_REGEX_NS}/UR_Robot_System/ur3_with_gripper/base_link",
-            debug_vis=False,
+            debug_vis=True,
             visualizer_cfg=_MARKER_CFG,
             target_frames=[
                 FrameTransformerCfg.FrameCfg(
                     prim_path="{ENV_REGEX_NS}/UR_Robot_System/ur3_with_gripper/short_gripper",
                     name="end_effector",
-                    offset=OffsetCfg(pos=[0.15, 0.0, 0.0]),
+                    offset=OffsetCfg(
+                        pos=[0.05, 0.0, 0.0],
+                        # short_gripper의 x축이 tool 방향(world down)이므로
+                        # R_y(+90°)를 적용해 z축이 tool 방향을 가리키도록 정렬
+                        # → 표준 z-down 컨벤션으로 통일 (0.5, 0.5, 0.5, 0.5), 
+                        rot=(0.7071, 0.0, 0.7071, 0.0) # wxyz: z=down, x=우 (goal frame과 정렬)
+                    ),
                 ),
             ],
         )
@@ -99,10 +105,11 @@ class URRobotSystemEnvCfg(URTableEnvCfg):
 
         # X-axis prismatic table: absolute position control
         # TODO: replace "table_x_joint" with the actual joint name from your USD
-        self.actions.table_action = JointPositionActionCfg(
+        self.actions.table_action = RelativeJointPositionActionCfg(
             asset_name="robot",
             joint_names=["PrismaticJoint"],
-            scale=1.0,
+            scale=0.1,
+            use_zero_offset=False,
         )
 
         # Suction gripper: binary on/off
@@ -141,22 +148,34 @@ class URTableAlignEnvCfg(URRobotSystemEnvCfg):
         super().__post_init__()
 
         # ── Shorter episode — simpler task than full pick-place ───────────────
-        self.episode_length_s = 8.0
-        self.commands.goal_pose.resampling_time_range = (6.0, 6.0)
+        self.episode_length_s = 4.0
+        self.commands.goal_pose.resampling_time_range = (4.0, 4.0)
 
-        # ── Goal quat added to observations ──────────────────────────────────
+        # ── Observations: goal_quat 추가 (yaw 변동 → orientation 학습 필요) ──
         self.observations.policy.goal_quat = ObsTerm(
             func=mdp.goal_quat_command,
             params={"command_name": "goal_pose"},
         )
 
         # ── Replace rewards: position align + regularisation ─────────────────
-        # Remove pick-place-only reg terms (inherit action_rate, action)
         self.rewards.action_rate.weight = -0.01
         self.rewards.action.weight = -0.01
 
-        # Main task reward: EE position → goal position
-        self.rewards.ee_pos_align = RewTerm(
+        # [1] Coarse approach: linear -dist → 거리에 무관하게 일정한 gradient
+        #     pos_x 범위가 ±0.9m로 넓어서 exp 단독으론 먼 거리 gradient가 0에 가까움
+        #     → 이 term이 멀 때 (dist > ~0.3m) 방향 신호 담당
+        self.rewards.ee_pos_approach = RewTerm(
+            func=mdp.ee_neg_dist,
+            weight=0.3,
+            params={
+                "command_name": "goal_pose",
+                "ee_frame_cfg": SceneEntityCfg("ee_frame"),
+            },
+        )
+
+        # [2] Precision bonus: exp(-10*dist) → 0.3m 이내 진입 시 sharp 보상
+        #     alpha=10은 "정밀 구간 전용" — linear term이 먼 거리 커버하므로 높아도 OK
+        self.rewards.ee_pos_precision = RewTerm(
             func=mdp.ee_goal_pos_reward,
             weight=1.0,
             params={
@@ -166,10 +185,10 @@ class URTableAlignEnvCfg(URRobotSystemEnvCfg):
             },
         )
 
-        # Optional orientation reward (low weight to not overwhelm position)
+        # [3] Orientation reward (yaw ±0.5 rad 변동 → 방향 정렬 학습)
         self.rewards.ee_ori_align = RewTerm(
             func=mdp.ee_goal_ori_reward,
-            weight=0.2,
+            weight=0.3,
             params={
                 "command_name": "goal_pose",
                 "ee_frame_cfg": SceneEntityCfg("ee_frame"),
@@ -178,11 +197,12 @@ class URTableAlignEnvCfg(URRobotSystemEnvCfg):
 
         # ── Success termination ───────────────────────────────────────────────
         self.terminations.ee_success = DoneTerm(
-            func=mdp.ee_at_goal,
+            func=mdp.ee_at_goal_hold,
             params={
                 "command_name": "goal_pose",
                 "ee_frame_cfg": SceneEntityCfg("ee_frame"),
-                "threshold": 0.03,  # 3 cm
+                "threshold": 0.03,   # 3 cm
+                "hold_steps": 5,     # ~0.17s 연속 유지 필요 (decimation=4, dt=1/120)
             },
         )
 

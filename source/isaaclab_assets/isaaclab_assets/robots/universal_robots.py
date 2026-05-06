@@ -280,9 +280,9 @@ UR_ROBOT_SYSTEM_CFG = ArticulationCfg(
         ),
         "table_slide": ImplicitActuatorCfg(
             joint_names_expr=["PrismaticJoint"],
-            effort_limit_sim=500.0,
-            stiffness=1000.0,
-            damping=100.0,
+            effort_limit_sim=1e9,
+            stiffness=4000.0,
+            damping=80.0,
         ),
     },
 )

@@ -40,11 +40,63 @@ def ee_goal_pos_reward(
     Returns:
         Reward tensor of shape (num_envs,).
     """
+    from isaaclab.assets import Articulation
+    from isaaclab.utils.math import combine_frame_transforms
+
     ee_frame: FrameTransformer = env.scene[ee_frame_cfg.name]
-    ee_pos = ee_frame.data.target_pos_w[:, 0, :] - env.scene.env_origins  # env-local
-    goal_pos = env.command_manager.get_command(command_name)[:, :3]  # env-local
-    dist = torch.norm(ee_pos - goal_pos, dim=-1)
+    ee_pos_w = ee_frame.data.target_pos_w[:, 0, :]  # world frame
+
+    # command는 robot root frame 기준 → 회전 포함해서 world frame으로 변환
+    robot: Articulation = env.scene["robot"]
+    command = env.command_manager.get_command(command_name)
+    goal_pos_w, _ = combine_frame_transforms(
+        robot.data.root_pos_w,
+        robot.data.root_quat_w,
+        command[:, :3],
+        command[:, 3:7],
+    )
+
+    dist = torch.norm(ee_pos_w - goal_pos_w, dim=-1)
     return torch.exp(-alpha * dist)
+
+
+def ee_neg_dist(
+    env: ManagerBasedRLEnv,
+    command_name: str,
+    ee_frame_cfg: SceneEntityCfg,
+) -> torch.Tensor:
+    """Linear (negative distance) reward for approaching the goal.
+
+    Returns -||ee_pos - goal_pos||, which provides a constant gradient signal
+    regardless of distance.  Pair with ee_goal_pos_reward (exponential) so that:
+      * Far from goal  → linear term dominates → constant pull toward goal
+      * Near goal      → exponential term dominates → sharp precision bonus
+
+    Args:
+        env: The environment instance.
+        command_name: Name of the UniformPoseCommand term.
+        ee_frame_cfg: SceneEntityCfg for the FrameTransformer sensor tracking the EE.
+
+    Returns:
+        Reward tensor of shape (num_envs,).  Values are ≤ 0.
+    """
+    from isaaclab.assets import Articulation
+    from isaaclab.utils.math import combine_frame_transforms
+
+    ee_frame: FrameTransformer = env.scene[ee_frame_cfg.name]
+    ee_pos_w = ee_frame.data.target_pos_w[:, 0, :]
+
+    robot: Articulation = env.scene["robot"]
+    command = env.command_manager.get_command(command_name)
+    goal_pos_w, _ = combine_frame_transforms(
+        robot.data.root_pos_w,
+        robot.data.root_quat_w,
+        command[:, :3],
+        command[:, 3:7],
+    )
+
+    dist = torch.norm(ee_pos_w - goal_pos_w, dim=-1)
+    return -dist
 
 
 def ee_goal_ori_reward(

@@ -76,15 +76,18 @@ class CommandsCfg:
     goal_pose = mdp.UniformPoseCommandCfg(
         asset_name="robot",
         body_name=MISSING,  # filled by robot-specific cfg (e.g., "ee_link")
-        resampling_time_range=(8.0, 8.0),
+        resampling_time_range=(4.0, 4.0),
         debug_vis=True,
         ranges=mdp.UniformPoseCommandCfg.Ranges(
-            pos_x=(0.3, 0.7),
-            pos_y=(-0.25, 0.25),
-            pos_z=(0.06, 0.06),
-            roll=(3.14, 3.14),   # EE facing down
+            # 보수적 reachable workspace: 원점에서 최대 ~0.45m 이내 직사각형
+            # 코너 거리 = sqrt(0.4² + 0.2²) ≈ 0.45m → UR3 reach 안쪽
+            # TODO: random_agent 실행 후 실제 EE 도달 범위 확인해서 조정
+            pos_x=(-0.9, 0.9),
+            pos_y=(-0.4, -0.3),
+            pos_z=(0.5, 0.5),
+            roll=(3.14, 3.14),
             pitch=(0.0, 0.0),
-            yaw=(-3.14, 3.14),
+            yaw=(-0.5, 0.5),
         ),
     )
 
@@ -193,7 +196,7 @@ class URTableEnvCfg(ManagerBasedRLEnvCfg):
     def __post_init__(self):
         self.decimation = 4
         self.sim.render_interval = self.decimation
-        self.episode_length_s = 15.0
+        self.episode_length_s = 4.0
         self.viewer.eye = (3.5, 3.5, 3.5)
         self.sim.dt = 1.0 / 120.0
         # SurfaceGripper requires CPU pipeline
